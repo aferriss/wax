@@ -1,0 +1,12 @@
+node_modules
+built
+.DS_Store
+.sass-cache
+.env
+*.swp
+*.swo
+*.swn
+.*.swp
+.*.swo
+.*.swn
+
