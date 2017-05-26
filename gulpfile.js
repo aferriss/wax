@@ -96,6 +96,7 @@ function browserifyTask(entry, out, cb) {
     presets: ["es2015", "react", "stage-1"]
   }))
   .transform('glslify')
+  .transform('glslify-optimize')
   .transform({ global: true }, config.isProduction ? 'uglifyify' : gutil.noop);
 
   if (config.isWatching) {

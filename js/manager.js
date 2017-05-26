@@ -25,6 +25,9 @@ module.exports = {
   ctx.colorMapShader;
   ctx.baseShader;
 
+  ctx.waveData ;
+  ctx.waveDirection = [];
+
   ctx.mouse = new Mouse();
   document.onmousemove = ctx.mouse.handleMouseMove;
   document.body.onmousedown = ctx.mouse.onMouseDown;
@@ -50,6 +53,14 @@ module.exports = {
         return response.text()
       }); 
       resp.then(function(t){
+        ctx.waveData = JSON.parse(t); 
+        ctx.waveData.forEach(function(dat){
+            if("Mean_Wave_Direction" in dat){
+              ctx.waveDirection.push(dat.Mean_Wave_Direction);
+            }else {
+              ctx.waveDirection.push(Math.floor(Math.random()*360));
+            }
+        });
           console.log(JSON.parse(t));
       });
        ctx.scn = new Screen(ctx.shell.gl);
@@ -62,6 +73,7 @@ module.exports = {
         ctx.bufAFbo.begin();
           ctx.feedbackShader.begin();
             ctx.feedbackShader.setUniform2f("resolution", ctx.initialSize[0],ctx.initialSize[1]);
+            ctx.feedbackShader.setUniform1f("direction", ctx.waveDirection[0]);
             ctx.feedbackShader.setUniformTexture("tex0", ctx.bufBFbo.getTexture(), 0);
             ctx.feedbackShader.setUniform1f("time", ctx.time);
               ctx.scn.draw();
@@ -85,6 +97,7 @@ module.exports = {
       ctx.colorMapShader.begin();
         ctx.colorMapShader.setUniformTexture("tex0", ctx.bufAFbo.getTexture(), 0);
         ctx.colorMapShader.setUniform2f("resolution", ctx.initialSize[0],ctx.initialSize[1]);
+        ctx.colorMapShader.setUniform1f("direction", ctx.waveDirection[0]);
         ctx.colorMapShader.setUniform1f("time", ctx.time);
               ctx.scn.draw();
       ctx.colorMapShader.end();

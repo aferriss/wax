@@ -2,6 +2,7 @@ precision highp float;
 uniform sampler2D tex0;
 uniform vec2 resolution;
 uniform float time;
+uniform float direction;
 
 const float SIGMOID_CONTRAST = 7.0;
 float colormap_red(float x) {
@@ -112,30 +113,74 @@ vec2 getGrad(vec2 uv,float delta)
     return vec2(
         getVal(uv+d.xy)-getVal(uv-d.xy),
         getVal(uv+d.yx)-getVal(uv-d.yx)
-    )/delta;
+    )*500.;
 }
-
+float getChannel(vec4 channel, sampler2D tex, vec2 uv){
+    return dot(texture2D(tex, uv ), channel);
+}
+vec4 calculateNormals(vec4 channel, sampler2D texIn, vec2 uv,vec2 resolution, float s, float nsize, float
+    nstrenght)
+{
+  float offsetX = nsize*s/resolution.x;
+  float offsetY = nsize*s/resolution.y;
+	vec2 ovX = vec2(0.0, offsetX);
+	vec2 ovY = vec2(0.0, offsetY);
+    
+	float X = (getChannel(channel,texIn, uv - ovX.yx)- getChannel(channel,texIn, uv + ovX.yx)) * nstrenght;
+  float Y = (getChannel(channel,texIn, uv - ovY.xy)- getChannel(channel,texIn, uv + ovY.xy)) * nstrenght;
+//  float Z = sqrt( saturate(dot(vec2(X,Y), vec2(X,Y))));
+  float Z =(1.0 -  (dot(vec2(X,Y), vec2(X,Y))));
+  float c = abs(X+Y);
+  float ss = .025;
+  vec3 xv = vec3(ss, X, 0);
+  vec3 yv = vec3(0, Y, ss);
+  //return vec4(normalize(cross(xv, -yv)).xzy, 0.0);
+	return normalize(vec4(X,Y,Z,c));
+}
 void main( )
 {
     vec2 res = resolution; 
     vec2 uv = gl_FragCoord.xy / res;
     
-    float dir = radians(mod(time*0.1, 760.0));
-    vec2 angle = vec2(sin(dir), cos(dir))*1.5;
-
-    vec3 n = vec3(getGrad(uv,1.0/res.y),225.0);
-    n=normalize(n);
-    vec3 light = normalize(vec3(angle,1.05));
+    float dir = radians(mod(time*5.0, 360.0));
+    dir = radians(direction);
+    vec2 angle = vec2(sin(dir), cos(dir));
+//    angle -= mod(time*0.05,5.0)*angle;//1.0 + mod(time*0.1, 10.0);
+    vec4 N = calculateNormals(vec4(1.0,0.0,0.0,0.0), tex0, uv, resolution, 1.0,
+        2.0, 2.0);
+    vec3 n = vec3(getGrad(uv,0.002/res.y),225.0);
+    n.z = (1.0 - (dot(n.xy, n.xy)));
+    
+//    n=normalize(n);
+    vec3 light = normalize(vec3(angle,1.0));
     float diff=clamp(dot(n,light),0.5,1.2);
     float spec=clamp(dot(reflect(light,n),vec3(0,0,-1.0)),0.0,1.0);
-    spec=pow(spec,64.0)*1.5;
+    spec=pow(spec,24.0)*1.5;
     
     vec4 fb = texture2D(tex0, uv);
-
+    float depth = fb.r;
+//    uv.x *= res.x / res.y; 
+//    vec3 H = normalize(light + vec3(uv.xy+vec2(-1.0,-1.0), 1.0));
+    vec3 H = normalize(light + vec3(uv-0.5-(-2.0 + mod(time*0.015, 6.0))*angle,1.0));
+    float S = max(0.0, dot(vec3(N.xy, N.z), H));
+    S = pow(S, 24.0)*1.9;
+ 
+    float R = 1.0 - clamp(dot(N.xyz, normalize(vec3(angle*vec2(1.0), 1.0))), .0, 1.);
+//    R *= 1.5;
     //fb = pow(fb, vec4(3.0));
-    fb =   colormap( fb.r);
+//    fb =   colormap( fb.r);
+//    fb.r = smoothstep(0.5, 0.8, fb.r);
+    fb = vec4(vec4(N.xyz*0.5 + 0.5,1.0));//colormap(smoothstep(-.2, 1.0,pow(fb.r, 1.0))));
+//    fb *= 1.0 -depth;
+    vec2 offs = 1.0 / res;
+
+//    fb.rgb += R*N.xyz;;
+//    fb += vec4(0.0,depth*0.05,depth*0.1,0.0);
+//    fb.rgb = mix(fb.rgb,vec3(1.0), smoothstep(-.2, 2.9, R));
+    gl_FragColor.rgb = vec3(fb.rgb);//fb.rgb;// (fb.rgb);//mix(fb.rgb, vec3(0.1,0.1,0.1), smoothstep(-0.2, 2.9,R));
+    gl_FragColor.a = 1.0;
 //    fb.rgb = contrast(fb.rgb);
-	gl_FragColor = fb ;//* diff + spec;
+//	gl_FragColor = vec4(vec3(S), 1.0) ;//* diff + spec;
   //gl_FragColor.rgb = 1.0 - gl_FragColor.rgb;
   //gl_FragColor =fb;// gl_FragColor * diff + spec;
 }
